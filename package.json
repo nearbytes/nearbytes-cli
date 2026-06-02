@@ -29,7 +29,8 @@
     "nearbytes-log": "github:nearbytes/nearbytes-log#0dc0519007bc1f8a9bfc3c52922387cc45fb7162",
     "nearbytes-skeleton": "github:nearbytes/nearbytes-skeleton#0158931decd927508d1532e8c3ed7c9dcee2825a",
     "nearbytes-sync": "github:nearbytes/nearbytes-sync#3585fb66fe2bd6ed4b59036f63b46c1af1083df3",
-    "selfsigned": "^5.5.0"
+    "selfsigned": "^5.5.0",
+    "nearbytes-engine": "github:nearbytes/nearbytes-engine"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
