@@ -1,0 +1,19 @@
+node_modules/
+package-lock.json
+*.tsbuildinfo
+.yarn/install-state.gz
+.yarn/cache/
+dist/
+
+# Local runtime artefacts
+.local/**
+!.local/
+!.local/.gitkeep
+
+# Ad-hoc fixtures dropped into the repo root by REPL/test runs
+tmp*.jpeg
+tmp*.jpg
+tmp*.png
+tmp*.bin
+tmp
+b.jpeg
