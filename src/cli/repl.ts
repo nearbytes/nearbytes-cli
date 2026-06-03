@@ -75,7 +75,7 @@ import {
   cmdClose,
   flushAndStop,
 } from './commands.js';
-import { cmdPeers, cmdMonitor, cmdWhoami } from './peersMonitor.js';
+import { cmdPeers, cmdMonitor, cmdWhoami, cmdDiag } from './peersMonitor.js';
 import { cmdChat, cmdSay } from './chatCommands.js';
 import type { Context } from './context.js';
 import { attachSyncInboundRefresh } from './context.js';
@@ -532,6 +532,11 @@ export async function runReplDispatch(
 
     case 'whoami':
       await cmdWhoami(ctx);
+      return;
+
+    case 'diag':
+    case 'diagnose':
+      await cmdDiag(ctx, { json: rest.includes('--json') });
       return;
 
     case 'monitor':

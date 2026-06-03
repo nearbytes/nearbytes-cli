@@ -36,7 +36,7 @@ import {
   cmdProfileRemove,
   red,
 } from './commands.js';
-import { cmdPeers, cmdMonitor, cmdWhoami } from './peersMonitor.js';
+import { cmdPeers, cmdMonitor, cmdWhoami, cmdDiag } from './peersMonitor.js';
 import { cmdChat, cmdSay } from './chatCommands.js';
 import { startRepl } from './repl.js';
 import { applyDebugOption, debugEnabled, parseDevInspectPort, parseWebDavPort } from '../debug.js';
@@ -282,6 +282,20 @@ program
     const intervalMs = Math.max(100, parseInt(opts.interval, 10) || 500);
     await bail(async () => {
       await cmdMonitor(ctx, { intervalMs });
+      await ctx.destroy();
+    });
+  });
+
+program
+  .command('diag')
+  .description('Structured health snapshot — identity, peers, sync cursors, problems (JSON: GET /debug)')
+  .option('--json', 'Output machine-readable JSON instead of coloured text')
+  .action(async (opts: { json?: boolean }) => {
+    const gopts = program.opts<{ config?: string; dataDir: string }>();
+    const config = await readConfig(gopts.config).catch(() => emptyConfig(gopts.dataDir));
+    const ctx = await createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
+    await bail(async () => {
+      await cmdDiag(ctx, { json: opts.json === true });
       await ctx.destroy();
     });
   });

@@ -6,6 +6,7 @@
 import http from 'node:http';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { platform } from 'node:os';
 import type { Server } from 'node:http';
 import { replayContextThrough, type FileService } from 'nearbytes-files';
 import { loadVolumeSession, type VolumeSessionFile } from '../cli/volumeSessionStore.js';
@@ -42,6 +43,7 @@ const API_INDEX = {
     { method: 'GET', path: '/volumes', description: 'volume-session.json' },
     { method: 'GET', path: '/view', description: 'webdav-view.json' },
     { method: 'GET', path: '/sync/summary', description: 'reception tail + fetch cursors' },
+    { method: 'GET', path: '/debug', description: 'full structured diagnosis: process + peers + mDNS + DHT + sync' },
     { method: 'GET', path: '/replay/<vol>?at=live|<#>|<hash>', description: 'replay snapshot JSON' },
   ],
 };
@@ -162,6 +164,11 @@ export async function startDevInspectServer(
           return;
         }
 
+        if (url.pathname === '/debug') {
+          json(res, 200, await buildDebugReport(dataDir, runCommand));
+          return;
+        }
+
         const m = url.pathname.match(/^\/replay\/([^/]+)$/);
         if (m !== null && req.method === 'GET') {
           const volume = decodeURIComponent(m[1]!);
@@ -226,6 +233,49 @@ function echoResultToTerminal(result: ReplCommandResult): void {
   if (result.error !== undefined && result.error.length > 0) {
     process.stderr.write(`${result.error}\n`);
   }
+}
+
+/**
+ * `/debug` — structured health snapshot served as JSON.
+ *
+ * Delegates entirely to the live REPL `diag --json` command so the logic
+ * stays in one place (peersMonitor.ts / cmdDiag) and the HTTP response and
+ * the REPL output are always in sync.
+ */
+async function buildDebugReport(
+  dataDir: string,
+  runCommand: DevInspectRunCommand,
+): Promise<Record<string, unknown>> {
+  // Ask cmdDiag to emit JSON instead of coloured text.
+  const result = await runCommand('diag --json').catch(() => null);
+  if (result?.ok && result.stdout.trim().startsWith('{')) {
+    try {
+      return JSON.parse(result.stdout) as Record<string, unknown>;
+    } catch { /* fall through to legacy path */ }
+  }
+
+  // Fallback: compose a minimal snapshot from whoami + sync/summary so the
+  // endpoint is always usable even if the REPL command fails.
+  const lockPath = `${dataDir}/.nearbytes-sync.lock`;
+  let lockPid: number | null = null;
+  try {
+    lockPid = Number((await readFile(lockPath, 'utf8')).trim().split(/\s/)[0]);
+  } catch { /* no lock */ }
+
+  const summary = await loadSyncSummary(dataDir);
+  const problems: string[] = [];
+  if (lockPid !== null && lockPid !== process.pid)
+    problems.push(`ZOMBIE — lock held by PID ${lockPid}, not this process (${process.pid})`);
+
+  return {
+    ts:       new Date().toISOString(),
+    process:  { pid: process.pid, uptime: Math.round(process.uptime()), platform: platform(), lockPid, lockMatch: lockPid === process.pid },
+    dataDir,
+    sync:     summary,
+    problems,
+    ok:       problems.length === 0,
+    note:     'partial — diag --json unavailable; run `diag` in the REPL for the full report',
+  };
 }
 
 async function loadSyncSummary(dataDir: string): Promise<{

@@ -10,7 +10,8 @@
  * Both commands work in REPL mode and in one-shot mode (`nbf peers`).
  */
 
-import { networkInterfaces } from 'node:os';
+import { networkInterfaces, platform, uptime } from 'node:os';
+import { readFile } from 'node:fs/promises';
 import type * as readline from 'node:readline';
 import type { ConnectedPeer, SyncEvent, SyncSnapshot, SyncStats } from 'nearbytes-sync/node';
 import { readSyncStateBeacon } from 'nearbytes-sync/node';
@@ -1320,4 +1321,176 @@ async function cmdMonitorFullscreen(ctx: Context, intervalMs: number): Promise<v
   } else {
     console.log(dim('  monitor closed'));
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// diag — unambiguous structured health snapshot
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * `diag` — one-shot structured health snapshot printed to stdout.
+ *
+ * Answers the three questions that matter during debugging:
+ *   1. Is this node's identity correct?
+ *   2. Who is connected, via which transport, and are there recent failures?
+ *   3. Is sync actually moving data, or is it stalled?
+ *
+ * Also detects the two most common pitfalls:
+ *   • zombie (another process holds the dataDir lock)
+ *   • self-connection (own profilePk is in the friends list)
+ */
+export async function cmdDiag(ctx: Context, opts: { json?: boolean } = {}): Promise<void> {
+  const sync  = ctx.skeleton.sync;
+  const peers = sync.peers() as ConnectedPeer[];
+
+  // ── identity ──────────────────────────────────────────────────────────────
+  const profileName = ctx.config.activeProfile;
+  const profilePk   = sync.activeProfilePublicKey ?? '';
+  const peerId      = sync.peerId ?? '';
+  const instanceKey = sync.instancePublicKey ?? '';
+  const servedCount = sync.serveProfilePublicKeys.length;
+  const friendCount = sync.friends.length;
+
+  // ── zombie guard ──────────────────────────────────────────────────────────
+  const lockPath = `${ctx.config.dataDir}/.nearbytes-sync.lock`;
+  let lockPid: number | null = null;
+  try {
+    lockPid = Number((await readFile(lockPath, 'utf8')).trim().split(/\s/)[0]);
+  } catch { /* no lock = clean */ }
+  const zombie = lockPid !== null && lockPid !== process.pid;
+
+  // ── peer breakdown ─────────────────────────────────────────────────────────
+  const dhtPeers  = peers.filter((p) => p.transportLabel.startsWith('dht'));
+  const mdnsPeers = peers.filter((p) => p.transportLabel.startsWith('mdns'));
+  const selfConn  = profilePk !== '' && peers.some((p) => p.remoteProfilePublicKey === profilePk);
+
+  // ── sync cursors ──────────────────────────────────────────────────────────
+  // Read fresh cursor timestamps from disk to detect stalled cursors.
+  const cursorDir = `${ctx.config.dataDir}/sync/fetch-cursors`;
+  type CursorEntry = { remoteProfilePublicKey: string; cursor: string; updatedAt: string };
+  const cursors: CursorEntry[] = [];
+  try {
+    const { readdir } = await import('node:fs/promises');
+    for (const f of await readdir(cursorDir)) {
+      if (!f.endsWith('.json')) continue;
+      try {
+        const raw = JSON.parse(await readFile(`${cursorDir}/${f}`, 'utf8')) as CursorEntry;
+        cursors.push(raw);
+      } catch { /* skip */ }
+    }
+  } catch { /* dir absent */ }
+
+  // ── problems ──────────────────────────────────────────────────────────────
+  const problems: string[] = [];
+  if (!profileName)    problems.push('NO_PROFILE  — add a profile to enable sync');
+  if (zombie)          problems.push(`ZOMBIE      — lock held by PID ${lockPid}, not this process (${process.pid})`);
+  if (selfConn)        problems.push('SELF_CONN   — own profilePk is in friends list; remove it');
+  if (peers.length === 0 && friendCount > 0)
+                       problems.push('NO_PEERS    — 0 connected peers despite ' + friendCount + ' friend(s)');
+  for (const c of cursors) {
+    const connectedPk = peers.find((p) => p.remoteProfilePublicKey === c.remoteProfilePublicKey);
+    if (connectedPk) {
+      const ageMin = (Date.now() - new Date(c.updatedAt).getTime()) / 60_000;
+      if (ageMin > 10)
+        problems.push(`STALE_CURSOR — ${c.remoteProfilePublicKey.slice(0, 12)} connected but cursor not updated for ${Math.round(ageMin)}m`);
+    }
+  }
+
+  // ── JSON output (for /debug HTTP endpoint) ────────────────────────────────
+  if (opts.json) {
+    console.log(JSON.stringify({
+      ts:       new Date().toISOString(),
+      process:  { pid: process.pid, uptime: Math.round(process.uptime()), platform: platform(), lockPid, lockMatch: lockPid === process.pid },
+      dataDir:  ctx.config.dataDir,
+      identity: { profile: profileName, profilePk, peerId, instance: instanceKey, served: servedCount, friends: friendCount },
+      peers: {
+        count: peers.length,
+        dht:   dhtPeers.length,
+        mdns:  mdnsPeers.length,
+        selfConnection: selfConn,
+        list:  peers.map((p) => ({
+          profile:   p.remoteProfilePublicKey.slice(0, 16),
+          peerId:    p.remotePeerId.slice(0, 8),
+          route:     p.transportLabel,
+          ageSec:    Math.round((Date.now() - p.connectedAt.getTime()) / 1000),
+          self:      p.remoteProfilePublicKey === profilePk,
+        })),
+      },
+      hub:      { active: ctx.activeVolume !== null ? ([...ctx.volumeRegistry.entries()].find(([, s]) => s === ctx.activeVolume?.volume?.secret)?.[0] ?? 'open') : null },
+      sync: {
+        cursors: cursors.map((c) => ({
+          profile:   c.remoteProfilePublicKey.slice(0, 16),
+          cursor:    c.cursor,
+          updatedAt: c.updatedAt,
+          staleMins: Math.round((Date.now() - new Date(c.updatedAt).getTime()) / 60_000),
+        })),
+      },
+      problems,
+      ok: problems.length === 0,
+    }));
+    return;
+  }
+
+  // ── render ────────────────────────────────────────────────────────────────
+  const ok = problems.length === 0;
+  console.log('');
+  console.log(bold('Node diagnosis') + '   ' + (ok ? green('✓ OK') : red(`✗ ${problems.length} problem(s)`)));
+  console.log(dim('─'.repeat(60)));
+
+  // Process
+  console.log(bold('\nProcess'));
+  console.log(`  pid      ${process.pid}${zombie ? red('  ← NOT lock holder (zombie risk!)') : ''}`);
+  console.log(`  lockPid  ${lockPid ?? dim('(no lock)')}`);
+  console.log(`  uptime   ${Math.round(process.uptime())}s   (OS uptime: ${Math.round(uptime())}s)`);
+  console.log(`  platform ${platform()}`);
+  console.log(`  dataDir  ${ctx.config.dataDir}`);
+
+  // Identity
+  console.log(bold('\nIdentity'));
+  console.log(`  profile    ${profileName ? green(profileName) : dim('(none)')}`);
+  console.log(`  profilePk  ${profilePk ? cyan(profilePk) : dim('(none)')}`);
+  console.log(`  peerId     ${peerId ? cyan(peerId) : dim('(none)')}`);
+  console.log(`  instance   ${instanceKey ? cyan(instanceKey.slice(0, 32) + '…') : dim('(none)')}`);
+  console.log(`  served     ${servedCount} profile(s)   friends: ${friendCount}`);
+
+  // Peers
+  console.log(bold('\nPeers'));
+  console.log(`  total: ${peers.length}   DHT: ${dhtPeers.length}   mDNS/LAN: ${mdnsPeers.length}${selfConn ? red('   SELF-CONN') : ''}`);
+  if (peers.length === 0) {
+    console.log(dim('  (no peers connected)'));
+  } else {
+    for (const p of peers) {
+      const age = Math.round((Date.now() - p.connectedAt.getTime()) / 1000);
+      const isSelf = p.remoteProfilePublicKey === profilePk;
+      console.log(
+        `  ${cyan(p.remoteProfilePublicKey.slice(0, 12))}  ${dim(p.transportLabel.padEnd(28))}  age ${age}s${isSelf ? red('  ← SELF') : ''}`,
+      );
+    }
+  }
+
+  // Sync cursors
+  console.log(bold('\nSync cursors'));
+  if (cursors.length === 0) {
+    console.log(dim('  (no cursors on disk — no data synced yet)'));
+  } else {
+    for (const c of cursors) {
+      const ageMin = (Date.now() - new Date(c.updatedAt).getTime()) / 60_000;
+      const stale  = ageMin > 10;
+      const conn   = peers.some((p) => p.remoteProfilePublicKey === c.remoteProfilePublicKey);
+      console.log(
+        `  ${cyan(c.remoteProfilePublicKey.slice(0, 12))}  cursor=${c.cursor.padEnd(6)}  updated ${Math.round(ageMin)}m ago${stale && conn ? red('  ← STALE') : ''}`,
+      );
+    }
+  }
+
+  // Problems
+  if (problems.length > 0) {
+    console.log(bold('\nProblems'));
+    for (const p of problems) console.log('  ' + red('✗') + '  ' + p);
+  }
+
+  // Footer: how to get the JSON version
+  console.log('');
+  console.log(dim('  JSON: curl http://localhost:9845/debug'));
+  console.log('');
 }

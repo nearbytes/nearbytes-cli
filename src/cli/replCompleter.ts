@@ -72,6 +72,8 @@ const TOP_LEVEL = [
   'whoami',
   'monitor',
   'top',
+  'diag',
+  'diagnose',
   // Session
   'help',
   'bye',

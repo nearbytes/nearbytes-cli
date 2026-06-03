@@ -1031,6 +1031,8 @@ ${cyan('Diagnostics (where is this block coming from?)')}
   peers ${dim('[-w]')}                            Snapshot of connected peers ${dim('(-w = full peer + instance keys)')}
   monitor ${dim('[on|off]')} ${dim('/ top')}                 Toggle sticky live panel above the prompt ${dim('(REPL)')}
                                          ${dim('Launch with `nbf -m` to mount the monitor on startup.')}
+  diag                                   Structured health snapshot: identity · peers · cursors · problems
+                                         ${dim('JSON equivalent: GET http://localhost:9845/debug')}
 
 ${cyan('Session')}
   help                                   Show this message
