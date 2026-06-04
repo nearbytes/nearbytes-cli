@@ -93,6 +93,7 @@ export async function createContext(
     config: rt.config,
     skeleton: rt.skeleton,
     fileService: rt.fileService,
+    chatService: rt.chatService,
     volumes: rt.volumes,
     watchers: rt.watchers,
     secretsByKey: rt.secretsByKey,
