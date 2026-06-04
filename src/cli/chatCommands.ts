@@ -2,7 +2,7 @@ import { publishChatMessage, readChatTimeline } from 'nearbytes-chat';
 import { green, yellow, dim, bold, cyan } from './output.js';
 import type { Context } from './context.js';
 
-function resolveHubSecret(ctx: Context, override?: string): string {
+export function resolveHubSecret(ctx: Context, override?: string): string {
   if (override !== undefined && override.trim().length > 0) {
     return override;
   }
@@ -33,6 +33,17 @@ export async function cmdSay(
     secret,
     trimmed,
   );
+  const feed = ctx.replChatFeed;
+  if (feed !== null) {
+    feed.notify({
+      eventHash: published.eventHash,
+      channelPublicKey: published.channelPublicKey,
+      publishedAt: published.payload.publishedAt,
+      message: published.message,
+      verified: true,
+    });
+    return;
+  }
   console.log(green('✓ Message sent'));
   console.log(`  Hub:   ${cyan(published.channelPublicKey)}`);
   console.log(`  Event: ${published.eventHash}`);

@@ -999,8 +999,8 @@ ${cyan('Volume connections')}
   refresh                                Reload from disk (sync + timeline cache)
 
 ${cyan('Chat (active hub / volume)')}
-  say <message> ${dim('[-s <secret>]')}             Send a hub-scoped chat message and show recent chat
-  chat ${dim('[limit] [-s <secret>]')}              Show recent hub chat messages
+  say <message> ${dim('[-s <secret>]')}             Send chat ${dim('(live in REPL above prompt)')}
+  chat ${dim('[limit] [-s <secret>]')}              Show recent hub chat history
 
 ${cyan('WebDAV (local mount)')}
   webdav status                          Show URL, profile credentials hint, client login state

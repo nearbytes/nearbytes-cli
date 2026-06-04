@@ -25,7 +25,7 @@
     "commander": "^12.0.0",
     "nearbytes-chat": "github:nearbytes/nearbytes-chat#046f5db1f6c93b32ab4def35f6388e445bd625d1",
     "nearbytes-crypto": "github:nearbytes/nearbytes-crypto#6859719510764702844882b8488b35ab31f20145",
-    "nearbytes-engine": "github:nearbytes/nearbytes-engine",
+    "nearbytes-engine": "github:nearbytes/nearbytes-engine#53dd4c70c7fd88f5074ba9504a1bf88ff695614d",
     "nearbytes-files": "github:nearbytes/nearbytes-files#b0bc2d2b020a4c2e3a13f8f79ed0eade8103fc98",
     "nearbytes-log": "github:nearbytes/nearbytes-log#0dc0519007bc1f8a9bfc3c52922387cc45fb7162",
     "nearbytes-skeleton": "github:nearbytes/nearbytes-skeleton#0158931decd927508d1532e8c3ed7c9dcee2825a",

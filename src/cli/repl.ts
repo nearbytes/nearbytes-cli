@@ -90,6 +90,7 @@ import {
   REPL_HISTORY_MAX_ENTRIES,
 } from './replHistory.js';
 import { installReplInterruptHandlers } from './replTerminal.js';
+import { attachReplChatFeed } from './replChatFeed.js';
 
 // ---------------------------------------------------------------------------
 // Tokeniser (bash-style; identical semantics to before)
@@ -669,6 +670,15 @@ export async function startRepl(ctx: Context, opts: StartReplOptions = {}): Prom
 
   const stopSyncRefresh = attachSyncInboundRefresh(ctx);
 
+  const chatFeed =
+    process.stdout.isTTY === true && process.stdin.isTTY === true
+      ? attachReplChatFeed(ctx, rl)
+      : null;
+  ctx.replChatFeed = chatFeed;
+  if (chatFeed !== null) {
+    console.log(dim('  Hub chat appears live above the prompt on the active volume.'));
+  }
+
   rl.prompt();
 
   /**
@@ -757,6 +767,8 @@ export async function startRepl(ctx: Context, opts: StartReplOptions = {}): Prom
      */
     void historySession.flush().finally(() => {
       stopSyncRefresh();
+      chatFeed?.stop();
+      ctx.replChatFeed = null;
       console.log('');
       const abortController = new AbortController();
       const onSigint = (): void => abortController.abort();

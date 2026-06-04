@@ -27,6 +27,7 @@ import {
 } from 'nearbytes-engine';
 import type { WebDavServer } from '../webdav/index.js';
 import type { DevInspectServer } from '../dev/index.js';
+import type { ReplChatFeed } from './replChatFeed.js';
 import { installSyncDebugBridge } from '../syncDebugBridge.js';
 import { debugEnabled } from '../debug.js';
 import {
@@ -62,6 +63,8 @@ export interface Context extends EngineRuntime {
   webdavLastAuthAt: number | null;
   webdavViewGeneration: number;
   remoteCwd: string;
+  /** Live chat above the REPL prompt; null outside interactive REPL. */
+  replChatFeed: ReplChatFeed | null;
   destroy(): Promise<void>;
 }
 
@@ -94,6 +97,7 @@ export async function createContext(
     watchers: rt.watchers,
     secretsByKey: rt.secretsByKey,
     lastTimelineEvents: rt.lastTimelineEvents,
+    volumeRefreshHooks: rt.volumeRefreshHooks,
     // CLI shell state
     webdav: null,
     devInspect: null,
@@ -107,6 +111,7 @@ export async function createContext(
     webdavLastAuthAt: null,
     webdavViewGeneration: 0,
     remoteCwd: '',
+    replChatFeed: null,
 
     async destroy(): Promise<void> {
       if (ctx.devInspect !== null) await ctx.devInspect.close();
