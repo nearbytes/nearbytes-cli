@@ -16,7 +16,7 @@
     "refresh": "node scripts/refresh.mjs",
     "nbf": "tsc && node dist/cli/index.js",
     "repl": "tsc && node dist/cli/index.js",
-    "dev": "node scripts/refresh.mjs && yarn repl --dev-inspect",
+    "dev": "node scripts/dev-bootstrap.mjs && yarn repl --dev-inspect",
     "dev:fast": "yarn repl --dev-inspect"
   },
   "license": "MIT",
