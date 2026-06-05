@@ -788,7 +788,7 @@ __metadata:
 
 "nearbytes-sync@github:nearbytes/nearbytes-sync":
   version: 0.1.0
-  resolution: "nearbytes-sync@https://github.com/nearbytes/nearbytes-sync.git#commit=394901a9eb1098f2008a91391617fa7613910b4e"
+  resolution: "nearbytes-sync@https://github.com/nearbytes/nearbytes-sync.git#commit=22e34ef947904378ef4274c2a62d960cce782476"
   dependencies:
     bonjour-service: "npm:^1.2.1"
     chokidar: "npm:^4.0.3"
@@ -797,7 +797,7 @@ __metadata:
     nearbytes-log: "github:nearbytes/nearbytes-log"
   bin:
     nbsync: ./bin/nbsync.mjs
-  checksum: 10c0/f1c6c4964ba3c13b5a8c89470777aae340043fa1a1abd1df33dbf6c3325c3655b2063681b47970a3660cce13b60770c3dfa3b30e8adfee713004a8d5162f289d
+  checksum: 10c0/0ec830c7f3e4d96d7041aaa532479ef64ea7a22b7780de8cd988a5336a5ca6b166a74d7b0c02f58a95ebb80711c424dc17774ae9dff82a565046ba95059aef6b
   languageName: node
   linkType: hard
 
