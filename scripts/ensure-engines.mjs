@@ -2,15 +2,22 @@
 /**
  * Enforce package.json `engines` and verify `node:sqlite` on the shell runtime.
  * The CLI runs directly on Node (not Electron); nearbytes-log projection
- * persistence needs Node >= 22.5.
+ * persistence needs Node >= 22.5 (>= 22.13 recommended; 22.5–22.12 need
+ * --experimental-sqlite, applied automatically).
  */
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { maybeReexecNvmrc } from './maybe-reexec-nvmrc.mjs';
+import {
+  versionGte,
+  needsExperimentalSqlite,
+  maybeReexecForSqliteFlag,
+} from './node-sqlite-runtime.mjs';
 
 const entry = fileURLToPath(import.meta.url);
 maybeReexecNvmrc(entry);
+maybeReexecForSqliteFlag(entry);
 
 const pkg = JSON.parse(readFileSync(resolve(dirname(entry), '..', 'package.json'), 'utf8'));
 
@@ -18,18 +25,6 @@ function parseMinVersion(range) {
   if (typeof range !== 'string') return null;
   const m = />=?\s*([\d.]+)/.exec(range);
   return m?.[1] ?? null;
-}
-
-function versionGte(actual, required) {
-  const a = actual.split('.').map((n) => Number(n));
-  const r = required.split('.').map((n) => Number(n));
-  for (let i = 0; i < Math.max(a.length, r.length); i++) {
-    const av = a[i] ?? 0;
-    const rv = r[i] ?? 0;
-    if (av > rv) return true;
-    if (av < rv) return false;
-  }
-  return true;
 }
 
 const minNode = parseMinVersion(pkg.engines?.node);
@@ -44,14 +39,22 @@ if (minNode && !versionGte(process.versions.node, minNode)) {
 
 try {
   await import('node:sqlite');
+  const flagNote = needsExperimentalSqlite() ? ' (via --experimental-sqlite)' : '';
   console.log(
-    `[engines] ok — node ${process.versions.node} (>= ${minNode ?? '?'}, node:sqlite available)`,
+    `[engines] ok — node ${process.versions.node} (>= ${minNode ?? '?'}, node:sqlite${flagNote})`,
   );
-} catch {
+} catch (err) {
+  const hint =
+    needsExperimentalSqlite(process.versions.node) ?
+      '  Node 22.5–22.12 needs --experimental-sqlite; upgrade to Node >= 22.13 (nvm install 22.13).'
+    : '  Fix: nvm use / fnm use (see .nvmrc), or install Node 22.13+.';
   console.error(
-    `[engines] Node ${process.versions.node} lacks built-in node:sqlite.\n` +
+    `[engines] Node ${process.versions.node} cannot load node:sqlite.\n` +
       `  nearbytes-log projection persistence needs Node >= 22.5.\n` +
-      `  Fix: nvm use / fnm use (see .nvmrc), or install Node 22+.`,
+      hint,
   );
+  if (err instanceof Error && err.message) {
+    console.error(`  (${err.message})`);
+  }
   process.exit(1);
 }

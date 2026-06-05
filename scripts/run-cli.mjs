@@ -7,15 +7,23 @@ import { spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { maybeReexecNvmrc } from './maybe-reexec-nvmrc.mjs';
+import { envWithSqliteFlag, maybeReexecForSqliteFlag } from './node-sqlite-runtime.mjs';
 
 const entry = fileURLToPath(import.meta.url);
 const root = resolve(dirname(entry), '..');
 const cliArgs = process.argv.slice(2);
 
 maybeReexecNvmrc(entry, cliArgs);
+maybeReexecForSqliteFlag(entry, cliArgs);
+
+const runtimeEnv = envWithSqliteFlag(process.env);
 
 function run(nodeArgs) {
-  const r = spawnSync(process.execPath, nodeArgs, { cwd: root, stdio: 'inherit', env: process.env });
+  const r = spawnSync(process.execPath, nodeArgs, {
+    cwd: root,
+    stdio: 'inherit',
+    env: runtimeEnv,
+  });
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
