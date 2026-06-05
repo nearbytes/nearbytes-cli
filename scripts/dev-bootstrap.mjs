@@ -7,8 +7,12 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { maybeReexecNvmrc } from './maybe-reexec-nvmrc.mjs';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const entry = fileURLToPath(import.meta.url);
+maybeReexecNvmrc(entry);
+
+const root = resolve(dirname(entry), '..');
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: root, stdio: 'inherit', shell: true, env: process.env });
@@ -19,6 +23,9 @@ const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
 
 console.log('[dev] yarn install');
 run('yarn', ['install']);
+
+console.log('[dev] ensure engines');
+run('node', ['scripts/ensure-engines.mjs']);
 
 if (pkg.scripts?.update) {
   console.log('[dev] yarn update');
