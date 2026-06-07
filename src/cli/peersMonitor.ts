@@ -609,6 +609,18 @@ function fmtEvent(e: SyncEvent): string {
         '  ' + yellow(formatTransportEndpoint(e.transportLabel))
       );
     }
+    case 'peer-stalled': {
+      const roleStr =
+        e.role === 'sibling' ? cyan('sibling') : yellow('friend ');
+      return (
+        time +
+        '  ' + yellow('! stall') +
+        '  ' + dim(e.reason) +
+        '  ' + roleStr +
+        '  ' + e.remoteProfilePublicKey.slice(0, 8) +
+        '  ' + dim(formatTransportEndpoint(e.transportLabel))
+      );
+    }
     case 'block-sent':
       return fmtTransferLine(
         'block-sent',
