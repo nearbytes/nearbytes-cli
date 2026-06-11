@@ -21,6 +21,9 @@ function run(cmd, args) {
 
 const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
 
+console.log('[dev] corepack enable');
+run('corepack enable');
+
 console.log('[dev] yarn install');
 run('yarn', ['install']);
 

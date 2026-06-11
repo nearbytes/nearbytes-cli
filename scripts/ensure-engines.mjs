@@ -32,7 +32,7 @@ if (minNode && !versionGte(process.versions.node, minNode)) {
   console.error(
     `[engines] Node ${process.versions.node} is too old; need >= ${minNode} ` +
       `(see package.json engines.node).\n` +
-      `  Tip: nvm use / fnm use (see .nvmrc) or install Node ${minNode}+.`,
+      `  Tip: yarn dev auto-installs Node from .nvmrc under .local/toolchain, or use fnm/nvm.`,
   );
   process.exit(1);
 }
@@ -47,7 +47,7 @@ try {
   const hint =
     needsExperimentalSqlite(process.versions.node) ?
       '  Node 22.5–22.12 needs --experimental-sqlite; upgrade to Node >= 22.13 (nvm install 22.13).'
-    : '  Fix: nvm use / fnm use (see .nvmrc), or install Node 22.13+.';
+    : '  Fix: yarn dev (auto-installs Node from .nvmrc), fnm/nvm, or install Node 22.13+.';
   console.error(
     `[engines] Node ${process.versions.node} cannot load node:sqlite.\n` +
       `  nearbytes-log projection persistence needs Node >= 22.5.\n` +
