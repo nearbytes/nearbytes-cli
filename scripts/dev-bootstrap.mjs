@@ -4,40 +4,34 @@
  * Wired from `yarn dev` in consumer repos.
  */
 import { readFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { maybeReexecNvmrc } from './maybe-reexec-nvmrc.mjs';
+import { pathWithNodeBin } from './local-node.mjs';
+import { runNode, runYarn } from './toolchain.mjs';
 
 const entry = fileURLToPath(import.meta.url);
 maybeReexecNvmrc(entry);
 
 const root = resolve(dirname(entry), '..');
-
-function run(cmd, args) {
-  const r = spawnSync(cmd, args, { cwd: root, stdio: 'inherit', shell: true, env: process.env });
-  if (r.status !== 0) process.exit(r.status ?? 1);
-}
+const env = pathWithNodeBin(process.execPath, process.env);
 
 const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
 
-console.log('[dev] corepack enable');
-run('corepack enable');
-
 console.log('[dev] yarn install');
-run('yarn', ['install']);
+runYarn(root, ['install'], env);
 
 console.log('[dev] ensure engines');
-run('node', ['scripts/ensure-engines.mjs']);
+runNode(root, ['scripts/ensure-engines.mjs'], env);
 
 if (pkg.scripts?.update) {
   console.log('[dev] yarn update');
-  run('yarn', ['update']);
+  runYarn(root, ['update'], env);
 }
 
 if (pkg.scripts?.refresh) {
   console.log('[dev] yarn refresh');
-  run('yarn', ['refresh']);
+  runYarn(root, ['refresh'], env);
 }
 
 console.log('[dev] bootstrap done.');
