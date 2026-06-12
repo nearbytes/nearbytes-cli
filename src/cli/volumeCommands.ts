@@ -1,5 +1,7 @@
 import { createSecret, bytesToHex } from 'nearbytes-crypto';
+import { clearTimelineCursor } from 'nearbytes-engine';
 import type { Context } from './context.js';
+import { activeVolumeSecret } from './context.js';
 import { openAndWatch } from './context.js';
 import { green, dim, yellow, cyan } from './output.js';
 import {
@@ -23,7 +25,8 @@ async function persistVolumeRegistry(ctx: Context): Promise<void> {
 }
 
 export async function resetTimelineCursor(ctx: Context): Promise<void> {
-  ctx.timelineCursorHash = null;
+  const secret = activeVolumeSecret(ctx);
+  if (secret !== undefined) clearTimelineCursor(ctx.timelineCursors, secret);
   if (ctx.volumeSessionActive !== null) {
     await saveWebDavView(ctx.config.dataDir, {
       volume: ctx.volumeSessionActive,

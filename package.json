@@ -18,6 +18,7 @@
     "nbf": "node scripts/run-cli.mjs",
     "repl": "node scripts/run-cli.mjs",
     "dev": "node scripts/dev-bootstrap.mjs && node scripts/run-cli.mjs --dev-inspect",
+    "dev-local": "NEARBYTES_LOCAL_DEPS=1 node scripts/dev-bootstrap.mjs && node scripts/run-cli.mjs --dev-inspect",
     "dev:fast": "node scripts/run-cli.mjs --dev-inspect"
   },
   "license": "MIT",

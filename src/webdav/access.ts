@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
+import { getTimelineCursor } from 'nearbytes-engine';
 import type { Context } from '../cli/context.js';
+import { activeVolumeSecret } from '../cli/context.js';
 import { parseBasicAuth } from './auth.js';
 import { profileWebDavPassword } from '../cli/volumeSessionStore.js';
 import { webDavViewPath, type WebDavViewState } from '../cli/webdavViewState.js';
@@ -42,7 +44,9 @@ export function resolveTimelineCursor(ctx: Context, volumeName: string): string 
     // no file yet
   }
   if (ctx.volumeSessionActive === volumeName) {
-    return ctx.timelineCursorHash ?? undefined;
+    const secret = activeVolumeSecret(ctx);
+    if (secret === undefined) return undefined;
+    return getTimelineCursor(ctx.timelineCursors, secret) ?? undefined;
   }
   return undefined;
 }
@@ -101,8 +105,10 @@ export function createWebDavAccess(ctx: Context): WebDavAccess {
     },
     getViewEpoch() {
       const vol = ctx.volumeSessionActive ?? '_';
-      const hash =
-        vol === '_' ? (ctx.timelineCursorHash ?? null) : resolveTimelineCursor(ctx, vol) ?? null;
+      const secret = activeVolumeSecret(ctx);
+      const liveCursor =
+        secret === undefined ? null : getTimelineCursor(ctx.timelineCursors, secret);
+      const hash = vol === '_' ? liveCursor : resolveTimelineCursor(ctx, vol) ?? null;
       const cursor = cursorEpochToken(hash);
       return `${vol}@${cursor}:g${ctx.webdavViewGeneration}`;
     },

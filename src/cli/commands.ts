@@ -18,7 +18,9 @@ import { basename, join, resolve } from 'path';
 import { expandUserPath } from './paths.js';
 import { createSecret, bytesToHex } from 'nearbytes-crypto';
 import { green, yellow, red, cyan, dim, bold, formatFileTable, formatTimelineTable } from './output.js';
+import { getTimelineCursor, timelineGotoAtEvent } from 'nearbytes-engine';
 import {
+  activeVolumeSecret,
   assertTimelineWritesAllowed,
   type Context,
   refreshIfOpen,
@@ -341,9 +343,10 @@ export async function cmdTimeline(ctx: Context, secret: string): Promise<void> {
     return;
   }
 
+  const cursorHash = getTimelineCursor(ctx.timelineCursors, secret);
   const cursorNote =
-    ctx.timelineCursorHash !== null
-      ? dim(`  Cursor: event #${eventNumberForHash(events, ctx.timelineCursorHash) ?? '?'} (read-only until timeline live)`)
+    cursorHash !== null
+      ? dim(`  Cursor: event #${eventNumberForHash(events, cursorHash) ?? '?'} (read-only until timeline live)`)
       : dim('  Cursor: live head');
 
   console.log(green(`✓ Timeline — ${events.length} event(s)`));
@@ -430,19 +433,13 @@ export async function cmdTimelineGoto(ctx: Context, selector: string): Promise<v
   if (replayIdx < 0) {
     throw new Error(`Event ${hash} is not in the FILES replay log`);
   }
-  ctx.timelineCursorHash = hash;
+  const cursor = await timelineGotoAtEvent(ctx.fileService, ctx.timelineCursors, secret, hash);
   await saveWebDavView(ctx.config.dataDir, {
     volume: ctx.volumeSessionActive,
-    cursorHash: hash,
+    cursorHash: cursor,
   });
   bumpWebDavView(ctx);
-  const atHead = replayIdx === replay.orderedEntries.length - 1;
-  if (atHead) {
-    ctx.timelineCursorHash = null;
-    await saveWebDavView(ctx.config.dataDir, {
-      volume: ctx.volumeSessionActive,
-      cursorHash: null,
-    });
+  if (cursor === null) {
     console.log(green('✓ Timeline cursor at live head'));
   } else {
     const displayNum = idx + 1;

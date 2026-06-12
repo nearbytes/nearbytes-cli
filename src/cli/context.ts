@@ -5,7 +5,8 @@
  * filesystem watchers, inbound-refresh) is NOT defined here anymore: it lives
  * in `nearbytes-engine` and is reused verbatim by the desktop app. This file
  * only adds the CLI-specific shell concerns on top — WebDAV, dev-inspect,
- * timeline cursor, volume registry, terminal cwd.
+ * volume registry, terminal cwd. Timeline cursor state lives on
+ * {@link EngineRuntime.timelineCursors} (nearbytes-engine).
  */
 import type {
   FileService,
@@ -18,6 +19,7 @@ import type {
   NearbytesConfig,
 } from 'nearbytes-skeleton';
 import {
+  assertTimelineWritesAllowed as assertTimelineWritesAllowedForSecret,
   createEngineRuntime,
   openAndWatch as engineOpenAndWatch,
   reloadVolumeFromDisk as engineReloadVolumeFromDisk,
@@ -55,8 +57,6 @@ export interface Context extends EngineRuntime {
   /** Registered volume name → channel secret (`volume-session.json`). */
   readonly volumeRegistry: Map<string, string>;
   volumeSessionActive: string | null;
-  /** Historical timeline cursor on the active volume (null = live head). */
-  timelineCursorHash: string | null;
   webdavAuthGeneration: number;
   webdavAuthenticatedGeneration: number | null;
   webdavLastAuthProfile: string | null;
@@ -99,13 +99,13 @@ export async function createContext(
     secretsByKey: rt.secretsByKey,
     lastTimelineEvents: rt.lastTimelineEvents,
     volumeRefreshHooks: rt.volumeRefreshHooks,
+    timelineCursors: rt.timelineCursors,
     // CLI shell state
     webdav: null,
     devInspect: null,
     activeVolume: null,
     volumeRegistry: new Map<string, string>(),
     volumeSessionActive: null,
-    timelineCursorHash: null,
     webdavAuthGeneration: 0,
     webdavAuthenticatedGeneration: null,
     webdavLastAuthProfile: null,
@@ -145,10 +145,15 @@ export async function createContext(
   return ctx;
 }
 
+export function activeVolumeSecret(ctx: Context): string | undefined {
+  if (ctx.volumeSessionActive === null) return undefined;
+  return ctx.volumeRegistry.get(ctx.volumeSessionActive);
+}
+
 export function assertTimelineWritesAllowed(ctx: Context): void {
-  if (ctx.timelineCursorHash !== null) {
-    throw new Error('Timeline is not at live head — run `timeline live` before mutating files');
-  }
+  const secret = activeVolumeSecret(ctx);
+  if (secret === undefined) return;
+  assertTimelineWritesAllowedForSecret(ctx.timelineCursors, secret);
 }
 
 // Re-export the shared engine runtime helpers under their historical names so
