@@ -6,6 +6,7 @@ package-lock.json
 dist/
 
 # Local runtime artefacts
+.node/
 .local/**
 !.local/
 !.local/.gitkeep
