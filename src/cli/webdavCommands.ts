@@ -1,4 +1,6 @@
+import { getTimelineCursor } from 'nearbytes-engine';
 import type { Context } from './context.js';
+import { activeVolumeSecret } from './context.js';
 import { green, yellow, dim, bold, cyan } from './output.js';
 import { bumpWebDavView, invalidateWebDavAuth } from '../webdav/access.js';
 import { profileWebDavPassword } from './volumeSessionStore.js';
@@ -63,7 +65,9 @@ export function cmdWebDavStatus(ctx: Context): void {
     console.log(`${bold('  Volumes:')}  ${volumes.join(', ')} ${dim('(at mount root)')}`);
   }
 
-  if (ctx.timelineCursorHash !== null) {
+  const secret = activeVolumeSecret(ctx);
+  const cursor = secret !== undefined ? getTimelineCursor(ctx.timelineCursors, secret) : null;
+  if (cursor !== null) {
     console.log('');
     console.log(
       yellow('  Timeline: historical cursor — WebDAV is read-only until `timeline live`'),

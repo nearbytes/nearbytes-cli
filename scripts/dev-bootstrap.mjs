@@ -3,7 +3,7 @@
  * Dev entry bootstrap: install deps, optional update, refresh nearbytes-* to main.
  * Wired from `yarn dev` in consumer repos.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { maybeReexecNvmrc } from './maybe-reexec-nvmrc.mjs';
@@ -17,6 +17,12 @@ const root = resolve(dirname(entry), '..');
 const env = pathWithNodeBin(process.execPath, process.env);
 
 const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
+
+const linkLocal = resolve(root, '../nearbytes-engine/scripts/link-local-deps.mjs');
+if (existsSync(linkLocal)) {
+  console.log('[dev] link local nearbytes deps');
+  runNode(root, [linkLocal], env);
+}
 
 console.log('[dev] yarn install');
 runYarn(root, ['install'], env);
